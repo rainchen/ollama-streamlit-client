@@ -196,21 +196,18 @@ def ui_model_params():
     with st.expander("Model Parameters"):
         with st.container():
             temperature_help = "The temperature of the model. Increasing the temperature will make the model answer more creatively. (Default: 0.8)"
-            st.session_state.temperature = st.slider(
-                "Temperature", 0.0, 2.0, 0.8, 0.1, help=temperature_help
+            # fmt: off
+            st.slider(
+                "Temperature", 0.0, 2.0, 0.8, 0.1, help=temperature_help, key="temperature"
             )
 
         with st.container():
             top_k_help = "Reduces the probability of generating nonsense. A higher value (e.g. 100) will give more diverse answers, while a lower value (e.g. 10) will be more conservative. (Default: 40)"
-            st.session_state.top_k = st.number_input(
-                "Top K", 1, 100, 40, help=top_k_help
-            )
+            st.number_input("Top K", 1, 100, 40, help=top_k_help, key="top_k")
 
         with st.container():
             top_p_help = "Works together with top-k. A higher value (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text. (Default: 0.9)"
-            st.session_state.top_p = st.slider(
-                "Top P", 0.0, 1.0, 0.9, 0.1, help=top_p_help
-            )
+            st.slider("Top P", 0.0, 1.0, 0.9, 0.1, help=top_p_help, key="top_p")
 
         with st.container():
             # Get the default num_ctx from the selected model info
@@ -219,15 +216,16 @@ def ui_model_params():
             max_num_ctx = max(32768, default_num_ctx)  # Ensure max is at least 32768
             num_ctx_help = "Sets the size of the context window used to generate the next token. (Default: same as selected model's context length)"
             # fmt: off
-            st.session_state.num_ctx = st.number_input(
-                "Context Window Size", 0, max_num_ctx, default_num_ctx, 512, help=num_ctx_help
+            st.number_input(
+                "Context Window Size", 0, max_num_ctx, default_num_ctx, 512, help=num_ctx_help, key="num_ctx"
             )
 
         with st.container():
             # Add num_predict parameter
             num_predict_help = "Same as OpenAI API max_tokens, maximum number of tokens to predict when generating text. (Default: 2048, -1 = infinite generation, -2 = fill context)"
-            st.session_state.num_predict = st.number_input(
-                "Number of Tokens to Predict", -2, 32768, 2048, help=num_predict_help
+            # fmt: off
+            st.number_input(
+                "Number of Tokens to Predict", -2, 32768, 2048, help=num_predict_help, key="num_predict"
             )
 
 
