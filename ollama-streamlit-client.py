@@ -232,9 +232,10 @@ def ui_model_params():
 
 
 def ui_new_conversation_button():
-    if st.button("New Conversation", key="new_conversation"):
+    if st.button(
+        "New Conversation", key="new_conversation", on_click=cb_reset_conversation
+    ):
         print("[DEBUG] new conversation")
-        cb_reset_conversation()
         # if uploaded image, update uploader key to reset the image upload widget
         if st.session_state.get(
             f"image_upload_{st.session_state['file_uploader_key']}", None
@@ -421,7 +422,7 @@ def generate_assistant_response(msg_holder):
 
 
 def init_session_state(force=False):
-    print("[DEBUG] init session state")
+    print(f"[DEBUG] init session state, force={force}")
     if force or "messages" not in st.session_state:
         st.session_state.messages = []
     if force or "stop_stream" not in st.session_state:
