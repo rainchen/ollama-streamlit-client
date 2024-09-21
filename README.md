@@ -8,12 +8,13 @@ Welcome to the **Ollama Streamlit Client**! This application is designed to prov
 
 - **Auto List Available Ollama Models**: The client automatically lists all available Ollama models, making it easy to select and interact with the model that best suits your needs.
 - **Bookmarkable URL for Selected Model**: The client generates a bookmarkable URL for the selected model, allowing you to easily share or revisit the specific model configuration.
-- **System Prompt Customization**: You can set a system prompt for each conversation, allowing you to customize the context and behavior of the model during your interactions.
+- **System Prompt Customization**: Auto fetch the default system prompt from Ollama model info, and you can set a system prompt for each conversation, allowing you to customize the context and behavior of the model during your interactions.
+- **Support Setting Model Parameters**: The client supports setting model parameters such as temperature, top_p, top_k, num_ctx, and num_predict, giving you more control over the model's behavior and output.
 - **Quick Reset Conversation**: Quickly reset the conversation with a one-click button, allowing you to start a new interaction without reloading the application.
-- **Message Metrics**: The client shows detailed message metrics, including `Input Tokens`, `Output Tokens`, `Latency`, and `TPS` (Tokens Per Second), providing insights into the performance and efficiency of the model.
+- **Message Metrics**: The client shows detailed message metrics, including Input Tokens, Output Tokens, Latency, and TPS (Tokens Per Second), providing insights into the performance and efficiency of the model.
 - **Image Upload Capability**: For models that have vision capabilities, the client allows you to upload image files, enabling richer and more diverse interactions.
-- **Responsive Interface**: The chat input is disabled while the chat bot is responding, preventing multiple submissions and ensuring a smooth user experience.
-- **Stop Button**: A stop button is provided above the chat input widget, allowing you to interrupt the chat bot's response if needed.
+- **Responsive Interface**: The chat input is disabled while the model is responding, preventing multiple submissions and ensuring a smooth user experience.
+- **Interrupt Responding**: A stop button is provided above the chat input widget, allowing you to interrupt the model's response if needed.
 
 ### Getting Started
 
@@ -28,20 +29,13 @@ To get started with the Ollama Streamlit Client, follow these steps:
    cd ollama-streamlit-client
    ```
 
-2. **Set Up a Virtual Environment** (optional but recommended):
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-   ```
-
-3. **Install Dependencies**:
+2. **Install Dependencies**:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Run the Application**:
+3. **Run the Application**:
    ```bash
    streamlit run ollama-streamlit-client.py
    ```

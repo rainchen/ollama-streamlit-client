@@ -25,6 +25,19 @@ def ollama_generate_response(
         yield chunk
 
 
+def cb_change_model():
+    print("[DEBUG] change model:", repr(st.session_state.select_model))
+    init_session_state(force=True)
+    # reset default system prompt
+    # fmt: off
+    if (
+        "system_prompt" in st.session_state and "selected_model_info" in st.session_state
+        and st.session_state.system_prompt == st.session_state.selected_model_info["default_system_prompt"]
+    ):
+        print("[DEBUG] reset default system prompt")
+        del st.session_state.system_prompt
+
+
 def cb_reset_conversation():
     print("[DEBUG] reset conversation")
     init_session_state(force=True)
@@ -53,6 +66,33 @@ def cb_disable_user_input():
 def cb_enable_user_input():
     print("[DEBUG] enable user input")
     st.session_state.user_input_disabled = False
+
+
+def cb_change_system_prompt():
+    print("[DEBUG] change system prompt:", repr(st.session_state.system_prompt))
+    input_system_prompt = st.session_state.system_prompt
+    system_prompt_from_url = st.query_params.get("system_prompt", "")
+    selected_model_info = st.session_state.get("selected_model_info", {})
+    default_system_prompt = selected_model_info.get("default_system_prompt", "")
+    # Update system prompt in url query params only if it's different from the default
+    if (
+        input_system_prompt != ""
+        and input_system_prompt != system_prompt_from_url
+        and input_system_prompt != default_system_prompt
+    ):
+        st.query_params["system_prompt"] = input_system_prompt
+        print(
+            "[DEBUG] update system_prompt in url query params:",
+            repr(input_system_prompt),
+        )
+    # if the system prompt is reset to default, delete the system_prompt from url query params
+    elif "system_prompt" in st.query_params and (
+        input_system_prompt == "" or input_system_prompt == default_system_prompt
+    ):
+        del st.query_params["system_prompt"]
+        print(
+            "[DEBUG] system prompt is reset to default,delete system_prompt in url query params"
+        )
 
 
 def ui_display_metrics(metrics: dict | None, show=True):
@@ -94,6 +134,7 @@ def ollama_get_models():
         model["has_vision_encoder"] = info.get("projector_info", {}).get(
             "clip.has_vision_encoder", False
         )
+        model["default_system_prompt"] = info.get("system", "")
     return models
 
 
@@ -162,12 +203,13 @@ def ui_model_selector(models):
     selection = st.selectbox(
         "Model:",
         options,
-        on_change=cb_reset_conversation,
+        on_change=cb_change_model,
         index=selected_model_idx,
         placeholder="Select a model",
         key="select_model",
     )
     if selection:
+        print("[DEBUG] select model:", repr(selection))
         new_selected_model = (
             selection.split(" ")[0] if selection is not None else ""
         )
@@ -178,18 +220,35 @@ def ui_model_selector(models):
 
 
 def ui_system_prompt():
-    system_prompt = st.query_params.get("system_prompt", "")
-    if "system_prompt" in st.session_state:
+    print("[DEBUG] show system prompt input")
+    # if system_prompt is in url query params and not blank, use it
+    if "system_prompt" in st.query_params and st.query_params.system_prompt != "":
+        system_prompt = st.query_params.system_prompt
+        print("[DEBUG] use system_prompt from url query params:", repr(system_prompt))
+    # if system_prompt is in session state, use it
+    elif "system_prompt" in st.session_state and st.session_state.system_prompt != "":
         system_prompt = st.session_state.system_prompt
-    system_prompt = st.text_area(
-        "System Prompt", key="system_prompt", value=system_prompt
+        print(
+            "[DEBUG] use system_prompt from user input:",
+            repr(system_prompt),
+        )
+    # otherwise, use the default system prompt
+    else:
+        # Load default system prompt when changing models
+        selected_model_info = st.session_state.get("selected_model_info", {})
+        system_prompt = selected_model_info.get("default_system_prompt", "")
+        print(
+            "[DEBUG] use default_system_prompt from selected_model_info:",
+            repr(system_prompt),
+        )
+
+    # show system prompt input
+    st.text_area(
+        "System Prompt",
+        key="system_prompt",
+        value=system_prompt,
+        on_change=cb_change_system_prompt,
     )
-    # update system prompt in url query params
-    if st.query_params.get("system_prompt", "") != system_prompt:
-        if system_prompt == "":
-            del st.query_params["system_prompt"]
-        else:
-            st.query_params["system_prompt"] = system_prompt
 
 
 def ui_model_params():
