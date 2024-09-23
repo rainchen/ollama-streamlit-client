@@ -186,37 +186,42 @@ def ui_sidebar(models, app_name):
 
 
 def ui_model_selector(models):
-    options = [
-        f"{model['name']} [{model['context_length_k']}k] [{model['size_gb']}GB]{' [👁️‍🗨️]' if model['has_vision_encoder'] else ''}"
+    model_options = {
+        model[
+            "name"
+        ]: f"{model['name']} [{model['context_length_k']}k] [{model['size_gb']}GB]{' [👁️‍🗨️]' if model['has_vision_encoder'] else ''} {model['default_system_prompt'] if model['default_system_prompt'] else ''}"
         for model in models
-    ]
+    }
+
     selected_model = ""
     selected_model_from_url = st.query_params.get("selected_model", "").strip()
     if st.session_state.get("select_model", ""):
-        selected_model = st.session_state.select_model.split(" ")[0]
+        selected_model = st.session_state.select_model
+        print("[DEBUG] selected_model from session_state:", repr(selected_model))
     else:
         selected_model = selected_model_from_url
+        print("[DEBUG] selected_model from url query params:", repr(selected_model))
     # fmt: off
-    selected_model_idx = next((i for i, option in enumerate(options) if option.split(" ")[0] == selected_model), None)
+    selected_model_idx = (list(model_options.keys()).index(selected_model) if selected_model in model_options else None)
     if selected_model_idx is not None:
         st.session_state.selected_model_info = models[selected_model_idx]
+
     selection = st.selectbox(
         "Model:",
-        options,
+        options=list(model_options.keys()),
+        format_func=lambda x: model_options.get(x),
         on_change=cb_change_model,
         index=selected_model_idx,
         placeholder="Select a model",
         key="select_model",
     )
+
     if selection:
         print("[DEBUG] select model:", repr(selection))
-        new_selected_model = (
-            selection.split(" ")[0] if selection is not None else ""
-        )
-        st.session_state.selected_model = new_selected_model
-        if new_selected_model != selected_model_from_url:
-            print("[DEBUG] update st.query_params.selected_model", new_selected_model)
-            st.query_params["selected_model"] = new_selected_model
+        st.session_state.selected_model = selection
+        if selection != selected_model_from_url:
+            print("[DEBUG] update st.query_params.selected_model", selection)
+            st.query_params["selected_model"] = selection
 
 
 def ui_system_prompt():
