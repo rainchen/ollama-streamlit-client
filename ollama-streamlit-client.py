@@ -276,20 +276,19 @@ def ui_model_params():
         with st.container():
             # Get the default num_ctx from the selected model info
             selected_model_info = st.session_state.get("selected_model_info", {})
-            default_num_ctx = selected_model_info.get("context_length", 4096)
-            max_num_ctx = max(32768, default_num_ctx)  # Ensure max is at least 32768
-            num_ctx_help = "Sets the size of the context window used to generate the next token. (Default: same as selected model's context length)"
+            max_num_ctx = selected_model_info.get("context_length", 2048)
+            num_ctx_help = "Sets the size of the context window used to generate the next token. (Default: 2048, Max: same as selected model's context length)"
             # fmt: off
             st.number_input(
-                "Context Window Size", 0, max_num_ctx, default_num_ctx, 512, help=num_ctx_help, key="num_ctx"
+                "Context Window Size", 0, max_num_ctx, 2048, 1024, help=num_ctx_help, key="num_ctx"
             )
 
         with st.container():
             # Add num_predict parameter
-            num_predict_help = "Same as OpenAI API max_tokens, maximum number of tokens to predict when generating text. (Default: 2048, -1 = infinite generation, -2 = fill context)"
+            num_predict_help = "Same as OpenAI API max_tokens, maximum number of tokens to predict when generating text. (Default: 1024, -1 = infinite generation, -2 = fill context)"
             # fmt: off
             st.number_input(
-                "Number of Tokens to Predict", -2, 32768, 2048, help=num_predict_help, key="num_predict"
+                "Number of Tokens to Predict", -2, max_num_ctx, 1024, help=num_predict_help, key="num_predict"
             )
 
 
