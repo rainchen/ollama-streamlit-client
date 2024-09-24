@@ -44,7 +44,9 @@ Once set up, you can launch the application and start exploring the capabilities
 
 ### Usage Demo
 
-[demo video]
+<center class="half">
+<img width="500" alt="demo-1-fs8" src="https://github.com/user-attachments/assets/5db9ec60-e308-4934-b6a5-2a0d63cabf8c"> <img width="500" alt="demo-2-fs8" src="https://github.com/user-attachments/assets/0d4d28e1-10d5-4a0d-9c73-2a143f3f0581">
+</center>
 
 ### License
 
