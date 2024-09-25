@@ -1,8 +1,10 @@
 import base64
 import streamlit as st
 import ollama
-from typing import Dict, Generator
+from typing import Dict, Generator, List
 from streamlit import _bottom
+import os
+import importlib
 
 APP_NAME = "Ollama Streamlit Client"
 
@@ -13,8 +15,9 @@ def ollama_generate_response(
     if system_prompt != "":
         messages = [{"role": "system", "content": system_prompt}] + messages
     print(
-        f"[DEBUG] sending {len(messages)} messages to Ollama API, with params: {params}"
+        f"[DEBUG] sending {len(messages)} messages to Ollama API, using model {repr(model_name)} with params: {params}"
     )
+    print(f"[DEBUG] messages: {messages}")
     stream = ollama.chat(
         model=model_name, messages=messages, stream=True, options=params
     )
@@ -97,7 +100,7 @@ def cb_change_system_prompt():
 
 def ui_display_metrics(metrics: dict | None, show=True):
     """Display token usage details."""
-    print("[DEBUG] message metrics:", metrics)
+    print("[DEBUG] show message metrics:", metrics)
     if metrics is None:
         return
 
@@ -174,7 +177,7 @@ def ui_custom_css():
     )
 
 
-def ui_sidebar(models, app_name):
+def ui_sidebar(models, app_name, plugins):
     print("[DEBUG] show sidebar")
     with st.sidebar:
         st.html("<a href='/' target='_self'>🏠</a>")
@@ -182,6 +185,7 @@ def ui_sidebar(models, app_name):
         ui_model_selector(models)
         ui_system_prompt()
         ui_model_params()
+        ui_plugin_selector(plugins)
         ui_new_conversation_button()
 
 
@@ -338,6 +342,7 @@ def ui_conversation_container():
     print("[DEBUG] show conversation history")
     conversation_container = st.container()
     with conversation_container:
+        ui_display_selected_plugin()
         ui_display_system_prompt()
         ui_display_chat_history()
         st.empty()  # prevent showing a stale container
@@ -348,6 +353,13 @@ def ui_display_system_prompt():
     if st.session_state.system_prompt != "":
         with st.chat_message("system", avatar=":material/settings_account_box:"):
             st.markdown(st.session_state.system_prompt)
+
+
+def ui_display_selected_plugin():
+    selected_plugin = st.session_state.get("plugin", "")
+    if selected_plugin != "":
+        with st.chat_message("system", avatar=":material/extension:"):
+            st.markdown(f"{selected_plugin.replace('_', ' ').title()}")
 
 
 def ui_display_chat_history():
@@ -395,16 +407,16 @@ def ui_chat_input_area():
     return prompt, uploaded_image
 
 
-def process_user_input(prompt, uploaded_image, conversation_container):
+def process_user_input(prompt, uploaded_image, conversation_container, plugins):
     if prompt:
-        print("[DEBUG] process user input:", prompt)
+        print("[DEBUG] process user input:", repr(prompt))
         st.session_state.stop_stream = False
         message = create_user_message(prompt, uploaded_image)
         st.session_state.messages.append(message)
 
         with conversation_container:
             ui_display_user_message(message)
-            ui_display_assistant_response(message)
+            ui_display_assistant_response(message, plugins)
 
         if st.session_state.user_input_disabled:
             cb_enable_user_input()
@@ -433,11 +445,11 @@ def ui_display_assistant_avatar():
         st.html('<div class="hasvision">👁️‍🗨️</div>')
 
 
-def ui_display_assistant_response(message):
+def ui_display_assistant_response(message, plugins):
     with st.chat_message("assistant"):
         ui_display_assistant_avatar()
         msg_holder = st.empty()
-        full_response, metrics = generate_assistant_response(msg_holder)
+        full_response, metrics = generate_assistant_response(msg_holder, plugins)
         msg_holder.markdown(full_response)
         ui_display_metrics(metrics)
 
@@ -447,7 +459,7 @@ def ui_display_assistant_response(message):
         )
 
 
-def generate_assistant_response(msg_holder):
+def generate_assistant_response(msg_holder, plugins):
     full_response = ""
     metrics = None
     params = {
@@ -457,29 +469,48 @@ def generate_assistant_response(msg_holder):
         "num_ctx": st.session_state.num_ctx,
         "num_predict": st.session_state.num_predict,
     }
+
+    selected_plugin = st.session_state.get("plugin", "None")
+
     with st.spinner(""):
-        for trunk in ollama_generate_response(
-            st.session_state.selected_model,
-            st.session_state.messages,
-            st.session_state.system_prompt,
-            params,
-        ):
-            if trunk["done"]:
-                keys = [
-                    "total_duration",
-                    "load_duration",
-                    "prompt_eval_count",
-                    "prompt_eval_duration",
-                    "eval_count",
-                    "eval_duration",
-                ]
-                metrics = {k: trunk.get(k, 0) for k in keys}
-            else:
-                response = trunk["message"]["content"]
-            full_response += response
-            st.session_state.last_response = full_response
-            msg_holder.markdown(full_response + "▌")
-    return full_response, metrics
+
+        def process_response(generator):
+            nonlocal full_response, metrics
+            for chunk in generator:
+                if chunk.get("done", False):
+                    # fmt: off
+                    metrics = {
+                        k: chunk.get(k, 0)
+                        for k in ["total_duration", "load_duration", "prompt_eval_count", "prompt_eval_duration", "eval_count", "eval_duration"]
+                    }
+                else:
+                    response = chunk["message"]["content"]
+                    full_response += response
+                    st.session_state.last_response = full_response
+                    msg_holder.markdown(full_response + "▌")
+
+        if selected_plugin != "None" and selected_plugin in plugins:
+            plugin_func = plugins[selected_plugin]
+            print(f"[DEBUG] invoke plugin: {selected_plugin}")
+            generator = plugin_func(
+                model=st.session_state.selected_model,
+                messages=st.session_state.messages,
+                system_prompt=st.session_state.system_prompt,
+                model_params=params,
+                generate_func=ollama_generate_response,
+                st=st,
+                ollama=ollama,
+            )
+        else:
+            generator = ollama_generate_response(
+                st.session_state.selected_model,
+                st.session_state.messages,
+                st.session_state.system_prompt,
+                params,
+            )
+
+        process_response(generator)
+        return full_response, metrics
 
 
 def init_session_state(force=False):
@@ -499,19 +530,73 @@ def model_has_vision():
     return model_info and model_info["has_vision_encoder"]
 
 
+def os_load_plugins() -> Dict[str, callable]:
+    plugins = {}
+    plugins_dir = "plugins"
+    for filename in os.listdir(plugins_dir):
+        if filename.endswith(".py"):
+            module_name = filename[:-3]
+            module = importlib.import_module(f"{plugins_dir}.{module_name}")
+            if hasattr(module, "process"):
+                plugins[module_name] = module.process
+    return plugins
+
+
+def ui_plugin_selector(plugins: Dict[str, callable]):
+    plugin_options = {"": "None"}
+    plugin_options.update(
+        {name: name.replace("_", " ").title() for name in plugins.keys()}
+    )
+
+    # Get the selected plugin from URL params if present
+    selected_plugin_from_url = st.query_params.get("plugin", "")
+
+    if st.session_state.get("plugin", ""):
+        selected_plugin = st.session_state.plugin
+        print("[DEBUG] plugin from session_state:", repr(selected_plugin))
+    else:
+        selected_plugin = selected_plugin_from_url
+        print("[DEBUG] plugin from url query params:", repr(selected_plugin))
+
+    # Determine the index of the selected plugin
+    selected_index = (
+        list(plugin_options.keys()).index(selected_plugin)
+        if selected_plugin in plugin_options
+        else 0
+    )
+    selection = st.selectbox(
+        "Plugin:",
+        options=list(plugin_options.keys()),
+        format_func=lambda option: plugin_options[option],
+        index=selected_index,
+        key="plugin",
+    )
+
+    # Update URL params with the selected plugin
+    if selection != selected_plugin_from_url:
+        print(f"[DEBUG] update plugin in URL params to: {repr(selection)}")
+        if selection:
+            st.query_params["plugin"] = selection
+        else:
+            del st.query_params["plugin"]
+
+    return selection
+
+
 def main():
     print("[DEBUG] main()")
     ui_custom_css()
     init_session_state()
 
     models = ollama_get_models()
-    ui_sidebar(models, APP_NAME)
+    plugins = os_load_plugins()
+    ui_sidebar(models, APP_NAME, plugins)
 
     conversation_container = ui_conversation_container()
 
     with _bottom:
         prompt, uploaded_image = ui_chat_input_area()
-        process_user_input(prompt, uploaded_image, conversation_container)
+        process_user_input(prompt, uploaded_image, conversation_container, plugins)
 
 
 if __name__ == "__main__":
