@@ -1,14 +1,30 @@
 # multi-step reasoning plugin for solving problems
+
+
+def plugin_info():
+    return {
+        "description": "multi-step reasoning plugin for solving problems",
+        "params": {
+            "display_reasoning_process": {
+                "type": "boolean",
+                "default": False,
+                "help": "Determines if the reasoning process should be shown",
+            },
+        },
+    }
+
+
 # fmt: off
 MAX_ATTEMPTS = 3
-def process(model: str, messages: list, system_prompt: str, model_params: dict, generate_func: callable, st, **kwargs):
+def process(model: str, messages: list, system_prompt: str, model_params: dict, plugin_params: dict, generate_func: callable, st, **kwargs):
     problem = messages[-1]["content"]
     messages = solve_problem(model, problem, max_attempts=MAX_ATTEMPTS, generate_func=generate_func)
 
     for chunk in generate_func(model, messages, system_prompt, model_params):
         yield chunk
 
-    st.session_state.messages.extend(messages)
+    if plugin_params.get("display_reasoning_process", False):
+        st.session_state.messages.extend(messages)
 
 def get_full_response(model: str, messages: list, system_prompt: str, model_params: dict, generate_func: callable):
     generator = generate_func(

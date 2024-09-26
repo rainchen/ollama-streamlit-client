@@ -1,4 +1,9 @@
-# COT prompting paper: https://arxiv.org/abs/2201.11903
+def plugin_info():
+    return {
+        "description": "Apply Chain-of-Thought Prompting(paper https://arxiv.org/abs/2205.11916), add few-shot think-step-by-step examples to the system prompt, and add 'Let's think step by step.' to the end of the user's query",
+    }
+
+
 # fmt: off
 def process(model: str, messages: list, system_prompt: str, model_params: dict, generate_func: callable, **kwargs):
     few_shot_cot_prompt = """

@@ -3,6 +3,12 @@
 # fmt: off
 import textwrap
 
+def plugin_info():
+    return {
+        "description": "Uses a Chain of Thought (CoT) approach with reflection for prompting, output the reasoning process and final answer in the specified format",
+    }
+
+
 def process(model: str, messages: list, system_prompt: str, model_params: dict, generate_func: callable, **kwargs):
     cot_prompt = textwrap.dedent(f"""
         {system_prompt}
