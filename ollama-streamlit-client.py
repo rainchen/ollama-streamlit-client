@@ -338,11 +338,11 @@ def ui_show_image_uploader(container):
     return uploaded_image
 
 
-def ui_conversation_container():
+def ui_conversation_container(plugins):
     print("[DEBUG] show conversation history")
     conversation_container = st.container()
     with conversation_container:
-        ui_display_selected_plugin()
+        ui_display_selected_plugin(plugins)
         ui_display_system_prompt()
         ui_display_chat_history()
         st.empty()  # prevent showing a stale container
@@ -355,11 +355,15 @@ def ui_display_system_prompt():
             st.markdown(st.session_state.system_prompt)
 
 
-def ui_display_selected_plugin():
+def ui_display_selected_plugin(plugins):
     selected_plugin = st.session_state.get("plugin", "")
     if selected_plugin != "":
+        plugin = plugins[selected_plugin]
+        plugin_info = plugin["info"]()
+        plugin_name = plugin_info.get("name", selected_plugin.replace("_", " ").title())
+        plugin_description = plugin_info.get("description", "")
         with st.chat_message("system", avatar=":material/extension:"):
-            st.markdown(f"{selected_plugin.replace('_', ' ').title()}")
+            st.markdown(plugin_name, help=plugin_description)
 
 
 def ui_display_chat_history():
@@ -490,13 +494,21 @@ def generate_assistant_response(msg_holder, plugins):
                     msg_holder.markdown(full_response + "▌")
 
         if selected_plugin != "None" and selected_plugin in plugins:
-            plugin_func = plugins[selected_plugin]
-            print(f"[DEBUG] invoke plugin: {selected_plugin}")
+            plugin_func = plugins[selected_plugin]["process"]
+            plugin_params = {
+                k.replace("plugin_param_", ""): v
+                for k, v in st.session_state.items()
+                if k.startswith("plugin_param_")
+            }
+            print(
+                f"[DEBUG] invoke plugin: {selected_plugin} with params: {plugin_params}"
+            )
             generator = plugin_func(
                 model=st.session_state.selected_model,
                 messages=st.session_state.messages,
                 system_prompt=st.session_state.system_prompt,
                 model_params=params,
+                plugin_params=plugin_params,
                 generate_func=ollama_generate_response,
                 st=st,
                 ollama=ollama,
@@ -530,23 +542,26 @@ def model_has_vision():
     return model_info and model_info["has_vision_encoder"]
 
 
-def os_load_plugins() -> Dict[str, callable]:
+def os_load_plugins() -> Dict[str, Dict]:
     plugins = {}
     plugins_dir = "plugins"
-    for filename in os.listdir(plugins_dir):
+    for filename in sorted(os.listdir(plugins_dir)):
         if filename.endswith(".py"):
             module_name = filename[:-3]
             module = importlib.import_module(f"{plugins_dir}.{module_name}")
             if hasattr(module, "process"):
-                plugins[module_name] = module.process
+                plugin_info = getattr(module, "plugin_info", lambda: {})
+                plugins[module_name] = {
+                    "name": module_name.replace("_", " ").title(),
+                    "process": module.process,
+                    "info": plugin_info,
+                }
     return plugins
 
 
-def ui_plugin_selector(plugins: Dict[str, callable]):
+def ui_plugin_selector(plugins: Dict[str, Dict]):
     plugin_options = {"": "None"}
-    plugin_options.update(
-        {name: name.replace("_", " ").title() for name in plugins.keys()}
-    )
+    plugin_options.update({name: plugins[name]["name"] for name in plugins.keys()})
 
     # Get the selected plugin from URL params if present
     selected_plugin_from_url = st.query_params.get("plugin", "")
@@ -580,7 +595,42 @@ def ui_plugin_selector(plugins: Dict[str, callable]):
         else:
             del st.query_params["plugin"]
 
+    if selection and selection in plugins:
+        ui_plugin_params(plugins[selection]["info"]().get("params", {}))
+
     return selection
+
+
+def ui_plugin_params(params: Dict):
+    if params:
+        st.subheader("Plugin Parameters")
+        for param_name, param_info in params.items():
+            param_type = param_info.get("type", "text")
+            param_default = param_info.get("default", "")
+            param_help = param_info.get("help", "")
+
+            if param_type == "text":
+                st.text_input(
+                    param_name,
+                    value=param_default,
+                    help=param_help,
+                    key=f"plugin_param_{param_name}",
+                )
+            elif param_type == "number":
+                st.number_input(
+                    param_name,
+                    value=float(param_default),
+                    help=param_help,
+                    key=f"plugin_param_{param_name}",
+                )
+            elif param_type == "boolean":
+                st.checkbox(
+                    param_name,
+                    value=bool(param_default),
+                    help=param_help,
+                    key=f"plugin_param_{param_name}",
+                )
+            # Add more input types as needed
 
 
 def main():
@@ -592,7 +642,7 @@ def main():
     plugins = os_load_plugins()
     ui_sidebar(models, APP_NAME, plugins)
 
-    conversation_container = ui_conversation_container()
+    conversation_container = ui_conversation_container(plugins)
 
     with _bottom:
         prompt, uploaded_image = ui_chat_input_area()
