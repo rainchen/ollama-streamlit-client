@@ -9,6 +9,10 @@ import importlib
 APP_NAME = "Ollama Streamlit Client"
 
 
+def util_titlize(text):
+    return text.replace("_", " ").title()
+
+
 def ollama_generate_response(
     model_name: str, messages: Dict, system_prompt: str, params: Dict
 ) -> Generator:
@@ -360,7 +364,7 @@ def ui_display_selected_plugin(plugins):
     if selected_plugin != "":
         plugin = plugins[selected_plugin]
         plugin_info = plugin["info"]()
-        plugin_name = plugin_info.get("name", selected_plugin.replace("_", " ").title())
+        plugin_name = plugin_info.get("name", util_titlize(selected_plugin))
         plugin_description = plugin_info.get("description", "")
         with st.chat_message("system", avatar=":material/extension:"):
             st.markdown(plugin_name, help=plugin_description)
@@ -552,7 +556,7 @@ def os_load_plugins() -> Dict[str, Dict]:
             if hasattr(module, "process"):
                 plugin_info = getattr(module, "plugin_info", lambda: {})
                 plugins[module_name] = {
-                    "name": module_name.replace("_", " ").title(),
+                    "name": util_titlize(module_name),
                     "process": module.process,
                     "info": plugin_info,
                 }
@@ -605,27 +609,28 @@ def ui_plugin_params(params: Dict):
     if params:
         st.subheader("Plugin Parameters")
         for param_name, param_info in params.items():
+            param_name_titlize = util_titlize(param_name)
             param_type = param_info.get("type", "text")
             param_default = param_info.get("default", "")
             param_help = param_info.get("help", "")
 
             if param_type == "text":
                 st.text_input(
-                    param_name,
+                    param_name_titlize,
                     value=param_default,
                     help=param_help,
                     key=f"plugin_param_{param_name}",
                 )
             elif param_type == "number":
                 st.number_input(
-                    param_name,
+                    param_name_titlize,
                     value=float(param_default),
                     help=param_help,
                     key=f"plugin_param_{param_name}",
                 )
             elif param_type == "boolean":
                 st.checkbox(
-                    param_name,
+                    param_name_titlize,
                     value=bool(param_default),
                     help=param_help,
                     key=f"plugin_param_{param_name}",
