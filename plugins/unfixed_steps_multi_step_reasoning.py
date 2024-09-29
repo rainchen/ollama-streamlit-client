@@ -12,9 +12,17 @@ def plugin_info():
         "params": {
             "display_reasoning": {
                 "type": "boolean",
-                "default": False,
+                "default": True,
                 "help": "Whether to display the reasoning process.",
-            }
+            },
+            "max_steps": {
+                "type": "number",
+                "min_value": 1,
+                "max_value": 30,
+                "step": 1,
+                "default": 10,
+                "help": "Maximum number of reasoning steps allowed.",
+            },
         },
     }
 
@@ -22,6 +30,7 @@ def plugin_info():
 # fmt: off
 def process(model: str, messages: list, system_prompt: str, model_params: dict, plugin_params: dict, generate_func: callable, **kwargs):
     display_reasoning = plugin_params.get("display_reasoning", False)
+    max_steps = plugin_params.get("max_steps", 10)
 
     # Create empty elements to hold the generated text and total time
     response_container = st.empty()
@@ -31,7 +40,7 @@ def process(model: str, messages: list, system_prompt: str, model_params: dict, 
     reasoning_process = []
     total_reasoning_time = None
     # Generate and display the response
-    for steps, total_thinking_time in generate_response(user_query, model):
+    for steps, total_thinking_time in generate_response(user_query, model, max_steps):
         with response_container.container():
             for i, (title, content, thinking_time, metrics) in enumerate(steps):
                 if title.startswith("Final Answer"):
@@ -90,7 +99,7 @@ def make_api_call(model, messages, max_tokens, is_final_answer=False):
                     return {"title": "Error", "content": f"Failed to generate step after 3 attempts. Error: {str(e)}", "next_action": "final_answer"}, metrics
             time.sleep(1)  # Wait for 1 second before retrying
 
-def generate_response(prompt, model):
+def generate_response(prompt, model, max_steps):
     messages = [
         {"role": "system", "content": """You are an expert AI assistant that explains your reasoning step by step. For each step, provide a title that describes what you're doing in that step, along with the content. Decide if you need another step or if you're ready to give the final answer. Respond in JSON format with 'title', 'content', and 'next_action' (must be either 'continue' or 'final_answer') keys. USE AS MANY REASONING STEPS AS POSSIBLE. AT LEAST 3. BE AWARE OF YOUR LIMITATIONS AS AN LLM AND WHAT YOU CAN AND CANNOT DO. IN YOUR REASONING, INCLUDE EXPLORATION OF ALTERNATIVE ANSWERS. CONSIDER YOU MAY BE WRONG, AND IF YOU ARE WRONG IN YOUR REASONING, WHERE IT WOULD BE. FULLY TEST ALL OTHER POSSIBILITIES. YOU CAN BE WRONG. WHEN YOU SAY YOU ARE RE-EXAMINING, ACTUALLY RE-EXAMINE, AND USE ANOTHER APPROACH TO DO SO. DO NOT JUST SAY YOU ARE RE-EXAMINING. USE AT LEAST 3 METHODS TO DERIVE THE ANSWER. USE BEST PRACTICES.
 
@@ -110,7 +119,6 @@ JSON keys must be present and lowercase.
     steps = []
     step_count = 1
     total_thinking_time = 0
-    total_thinking_time = 0
     
     while True:
         print(f"[DEBUG] plugins/unfixed_steps_multi_step_reasoning: start step {step_count}, max {max_steps}")
@@ -125,7 +133,7 @@ JSON keys must be present and lowercase.
             steps.append((f"Step {step_count}: {step_data['title']}", step_data['content'], thinking_time, metrics))
             messages.append({"role": "assistant", "content": json.dumps(step_data)})
         
-        if step_data.get("next_action", "") == 'final_answer' or step_count > 10: # Maximum of 10 steps to prevent infinite thinking time. Can be adjusted.
+        if step_data.get("next_action", "") == 'final_answer' or step_count >= max_steps:
             yield steps, None # last step
             break
         else:
