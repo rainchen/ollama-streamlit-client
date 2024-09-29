@@ -3,7 +3,8 @@ import streamlit as st
 import time
 import ollama
 
-PLUGIN_MESSAGE_ID = "plugin.o1_like_multi_step_reasoning.reasoning_result"
+PLUGIN_ID = __file__.split("/")[-1].split(".")[0]
+PLUGIN_MESSAGE_ID = f"plugin.{PLUGIN_ID}.reasoning_result"
 
 
 def plugin_info():
@@ -78,14 +79,14 @@ def make_api_call(model, messages, max_tokens, is_final_answer=False):
     for attempt in range(3):
         try:
             metrics = None
-            print("[DEBUG] plugins/unfixed_steps_multi_step_reasoning: sending messages to ollama:\n", messages)
+            print_debug("sending messages to ollama:\n", messages)
             response = ollama.chat(
                 model=model,
                 messages=messages,
                 options={"temperature":0.2, "max_length":max_tokens},
                 format='json',
             )
-            print("[DEBUG] plugins/unfixed_steps_multi_step_reasoning: response from ollama:\n", response)
+            print_debug("response from ollama:\n", response)
             metrics = {
                 k: response.get(k, 0)
                 for k in ["total_duration", "load_duration", "prompt_eval_count", "prompt_eval_duration", "eval_count", "eval_duration"]
@@ -121,10 +122,10 @@ JSON keys must be present and lowercase.
     total_thinking_time = 0
     
     while True:
-        print(f"[DEBUG] plugins/unfixed_steps_multi_step_reasoning: start step {step_count}, max {max_steps}")
+        print_debug(f"start step {step_count}, max {max_steps}")
         start_time = time.time()
         step_data, metrics = make_api_call(model, messages, 300)
-        print("[DEBUG] plugins/unfixed_steps_multi_step_reasoning: step_data:", repr(step_data))
+        print_debug("step_data:", repr(step_data))
         end_time = time.time()
         thinking_time = end_time - start_time
         total_thinking_time += thinking_time
@@ -156,3 +157,6 @@ JSON keys must be present and lowercase.
     steps.append(("Final Answer", final_data['content'], thinking_time, metrics))
 
     yield steps, total_thinking_time
+
+def print_debug(message, *args):
+    print(f"\033[94m[DEBUG] plugins/{PLUGIN_ID}: {message}\033[0m", *args)

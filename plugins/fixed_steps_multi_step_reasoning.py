@@ -3,7 +3,8 @@ import streamlit as st
 import time
 import ollama
 
-PLUGIN_MESSAGE_ID = "plugin.fixed_steps_multi_step_reasoning.reasoning_result"
+PLUGIN_ID = __file__.split("/")[-1].split(".")[0]
+PLUGIN_MESSAGE_ID = f"plugin.{PLUGIN_ID}.reasoning_result"
 
 DEFAULT_REASONING_PROMPT = """
 You are an AI language model engineered to solve user problems through first-principles thinking and evidence-based reasoning. Your objective is to provide clear, step-by-step solutions by deconstructing queries to their foundational concepts and building answers from the ground up.
@@ -103,15 +104,15 @@ def make_api_call(model, messages, max_tokens, is_final_answer=False):
         try:
             metrics = None
             if attempt != 0:
-                print("[DEBUG] plugins/o1_like_step_by_step_reasoning: retry making api call", attempt)
-            print("[DEBUG] plugins/o1_like_step_by_step_reasoning: send messages:\n", messages)
+                print_debug(f"retry making api call {attempt}")
+            print_debug("send messages:\n", messages)
             response = ollama.chat(
                 model=model,
                 messages=messages,
                 options={"temperature":0.2, "max_length":max_tokens},
                 format='json',
             )
-            print("[DEBUG] plugins/o1_like_step_by_step_reasoning: get response:\n", response)
+            print_debug("get response:\n", response)
             metrics = {
                 k: response.get(k, 0)
                 for k in ["total_duration", "load_duration", "prompt_eval_count", "prompt_eval_duration", "eval_count", "eval_duration"]
@@ -125,7 +126,7 @@ def make_api_call(model, messages, max_tokens, is_final_answer=False):
                 raise ValueError("Invalid step data")
             return step_data, metrics
         except Exception as e:
-            print(f"[DEBUG] plugins/o1_like_step_by_step_reasoning: error making api call: {str(e)}")
+            print_debug(f"error making api call: {str(e)}")
             if attempt == 2:
                 if is_final_answer:
                     return {"title": "Error", "content": f"Failed to generate final answer after 3 attempts. Error: {str(e)}"}, metrics
@@ -172,16 +173,16 @@ For example, when the last step is "Verify: Review and reflect on the solution."
     total_thinking_time = 0
     
     while True:
-        print(f"[DEBUG] plugins/o1_like_step_by_step_reasoning: start step {step_count}, max {max_steps}")
+        print_debug(f"start step {step_count}, max {max_steps}")
         start_time = time.time()
         step_data, metrics = make_api_call(model, messages, 300)
-        print("[DEBUG] plugins/o1_like_step_by_step_reasoning: get step_data:", repr(step_data))
+        print_debug("get step_data:", repr(step_data))
         end_time = time.time()
         thinking_time = end_time - start_time
         total_thinking_time += thinking_time
         
         if not step_data == {}:
-            print(f"[DEBUG] plugins/o1_like_step_by_step_reasoning: append step {step_count}: {step_data['title']}")
+            print_debug(f"append step {step_count}: {step_data['title']}")
             steps.append((f"Step {step_count}: {step_data['title']}", step_data['content'], thinking_time, metrics))
             messages.append({"role": "assistant", "content": json.dumps(step_data)})
         
@@ -201,8 +202,8 @@ For example, when the last step is "Verify: Review and reflect on the solution."
     # Generate final answer
     messages.append({"role": "user", "content": "Please provide the final answer based on your reasoning above."})
     
+    print_debug("get final answer")
     start_time = time.time()
-    print("[DEBUG] plugins/o1_like_step_by_step_reasoning: get final answer")
     final_data, metrics = make_api_call(model, messages, 200, is_final_answer=True)
     end_time = time.time()
     thinking_time = end_time - start_time
@@ -211,3 +212,6 @@ For example, when the last step is "Verify: Review and reflect on the solution."
     steps.append(("Final Answer", final_data.get("content", ""), thinking_time, metrics))
 
     yield steps, total_thinking_time
+
+def print_debug(message, *args):
+    print(f"\033[94m[DEBUG] plugins/{PLUGIN_ID}: {message}\033[0m", *args)
