@@ -1,7 +1,7 @@
 import base64
 import streamlit as st
 import ollama
-from typing import Dict, Generator, List
+from typing import Dict, Generator
 from streamlit import _bottom
 import os
 import importlib
@@ -107,9 +107,9 @@ def ui_display_metrics(metrics: dict | None, show=True):
     print("[DEBUG] show message metrics:", metrics)
     if metrics is None:
         return
-
-    latency = round(metrics.get("eval_duration", 0) / 10**9, 1)
-    tps = max(1, round(metrics.get("eval_count", 0) / latency))
+    # fmt: off
+    latency = round(metrics.get("eval_duration", 0) / 10**9, 1) if metrics.get("eval_duration", 0) > 0 else 0
+    tps = max(1, round(metrics.get("eval_count", 0) / latency)) if latency > 0 else 0
     usage_info = [
         f"Input Tokens: {metrics.get('prompt_eval_count', 0)}",
         f"Output Tokens: {metrics.get('eval_count', 0)}",
@@ -626,35 +626,46 @@ def ui_plugin_selector(plugins: Dict[str, Dict]):
 
 def ui_plugin_params(params: Dict):
     if params:
-        st.subheader("Plugin Parameters")
-        for param_name, param_info in params.items():
-            param_name_titlize = util_titlize(param_name)
-            param_type = param_info.get("type", "text")
-            param_default = param_info.get("default", "")
-            param_help = param_info.get("help", "")
+        with st.expander("Plugin Parameters", expanded=True):
+            for param_name, param_info in params.items():
+                param_name_titlize = util_titlize(param_name)
+                param_type = param_info.get("type", "text")
+                param_default = param_info.get("default", "")
+                param_help = param_info.get("help", "")
 
-            if param_type == "text":
-                st.text_input(
-                    param_name_titlize,
-                    value=param_default,
-                    help=param_help,
-                    key=f"plugin_param_{param_name}",
-                )
-            elif param_type == "number":
-                st.number_input(
-                    param_name_titlize,
-                    value=float(param_default),
-                    help=param_help,
-                    key=f"plugin_param_{param_name}",
-                )
-            elif param_type == "boolean":
-                st.checkbox(
-                    param_name_titlize,
-                    value=bool(param_default),
-                    help=param_help,
-                    key=f"plugin_param_{param_name}",
-                )
-            # Add more input types as needed
+                if param_type == "string":
+                    st.text_input(
+                        param_name_titlize,
+                        value=param_default,
+                        help=param_help,
+                        key=f"plugin_param_{param_name}",
+                    )
+                elif param_type == "text":
+                    st.text_area(
+                        param_name_titlize,
+                        value=param_default,
+                        height=param_info.get("height", None),
+                        max_chars=param_info.get("max_chars", None),
+                        help=param_help,
+                        key=f"plugin_param_{param_name}",
+                    )
+                elif param_type == "number":
+                    st.number_input(
+                        param_name_titlize,
+                        value=param_default,
+                        min_value=param_info.get("min_value", None),
+                        max_value=param_info.get("max_value", None),
+                        step=param_info.get("step", None),
+                        help=param_help,
+                        key=f"plugin_param_{param_name}",
+                    )
+                elif param_type == "boolean":
+                    st.checkbox(
+                        param_name_titlize,
+                        value=bool(param_default),
+                        help=param_help,
+                        key=f"plugin_param_{param_name}",
+                    )
 
 
 def main():
