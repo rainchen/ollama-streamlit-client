@@ -388,8 +388,24 @@ def ui_chat_input_disabled():
     return disabled
 
 
+def ui_init_chat_input_value(value):
+    js = """
+        <script>
+            function setChatInputValue(value) {
+                var chatInput = parent.document.querySelector('textarea[data-testid="stChatInputTextArea"]');
+                var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+                nativeInputValueSetter.call(chatInput, value);
+                var event = new Event('input', { bubbles: true});
+                chatInput.dispatchEvent(event);
+            }
+            setChatInputValue(default_chat_input_value);
+        </script>
+        """.replace("default_chat_input_value", repr(value))
+    st.components.v1.html(js, width=0, height=0, scrolling=False)
+
+
 def ui_chat_input_area():
-    chat_input_col, image_uploader_col = st.columns([9, 1])
+    chat_input_col, image_uploader_col, js_col = st.columns([9, 1, 0.01])
     with chat_input_col:
         print("[DEBUG] show user input")
         prompt = st.chat_input(
@@ -411,7 +427,10 @@ def ui_chat_input_area():
             print("[DEBUG] show image uploader")
             image_uploader_container = st.container()
             uploaded_image = ui_show_image_uploader(image_uploader_container)
-
+    with js_col:
+        # Get initial user input from URL if present like "&user_input=initial-input-value"
+        if "user_input" in st.query_params:
+            ui_init_chat_input_value(st.query_params.user_input)
     return prompt, uploaded_image
 
 
