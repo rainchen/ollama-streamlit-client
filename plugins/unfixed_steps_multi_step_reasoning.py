@@ -66,10 +66,11 @@ def process(model: str, messages: list, system_prompt: str, model_params: dict, 
             message = {"role": "assistant","content": content,"name": PLUGIN_MESSAGE_ID, "metrics": metrics}
             messages.append(message)
     reasoning_result = ''.join([content for content, _ in reasoning_process])
-    reasoning_result_prompt = f"Following is my reasoning:\n{reasoning_result}\n\nBased on my reasoning, I provide my answer:\n"
+    reasoning_result_prompt = f"Following is my reasoning:\n{reasoning_result}\n\nBased on my reasoning, I'm ready to provide my final answer."
     messages = [
         {"role": "user", "content": user_query},
         {"role": "assistant", "content": reasoning_result_prompt, "metrics": metrics},
+        {"role": "user", "content": f"Provide your final answer for the following question: {user_query}."},
     ]
     for chunk in generate_func(model, messages, system_prompt, model_params):
         yield chunk
@@ -114,7 +115,8 @@ Example of a valid JSON response:
 JSON keys must be present and lowercase.
 """},
         {"role": "user", "content": prompt},
-        {"role": "assistant", "content": "Thank you! I will now think step by step following my instructions, starting at the beginning after decomposing the problem."}
+        {"role": "assistant", "content": "Thank you! I will now think step by step following my instructions, starting at the beginning after decomposing the problem."},
+        {"role": "user", "content": "start reasoning"},
     ]
     
     steps = []
