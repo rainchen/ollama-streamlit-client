@@ -14,10 +14,14 @@ def util_titlize(text):
 
 
 def ollama_generate_response(
-    model_name: str, messages: Dict, system_prompt: str, params: Dict
+    model_name: str, messages: list, system_prompt: str, params: Dict
 ) -> Generator:
     if system_prompt != "":
         messages = [{"role": "system", "content": system_prompt}] + messages
+    # drop the 'metrics' attribute in the last message
+    if messages and isinstance(messages[-1], dict) and "metrics" in messages[-1]:
+        messages = messages.copy()
+        del messages[-1]["metrics"]
     print(
         f"[DEBUG] sending {len(messages)} messages to Ollama API, using model {repr(model_name)} with params: {params}"
     )
