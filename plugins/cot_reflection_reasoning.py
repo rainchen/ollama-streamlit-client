@@ -11,7 +11,7 @@ def plugin_info():
         "params": {
             "display_reasoning": {
                 "type": "boolean",
-                "default": False,
+                "default": True,
                 "help": "Determines if the reasoning process should be shown",
             },
         },
@@ -32,11 +32,12 @@ def process(model: str, messages: list, system_prompt: str, model_params: dict, 
     else:
         reasoning, metrics = process_generator(cot_reflection_generator, None)
 
-    reasoning_result = f"Following is my reasoning result:\n{reasoning}\n\nBased on my reasoning result, I provide my answer:\n".strip()
+    reasoning_result = f"Following is my reasoning result:\n{reasoning}\n\nBased on my reasoning result, I'm ready to provide my answer.".strip()
     
     messages=[
         {"role": "user", "content": initial_query},
         {"role": "assistant", "content": reasoning_result},
+        {"role": "user", "content": "Your answer is?(response in the same language as initial query)"}
     ]
     for chunk in generate_func(model, messages, system_prompt, model_params):
         yield chunk
