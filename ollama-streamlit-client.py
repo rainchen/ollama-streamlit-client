@@ -145,6 +145,9 @@ def ollama_get_models():
         model["has_vision_encoder"] = info.get("projector_info", {}).get(
             "clip.has_vision_encoder", False
         )
+        # gemma3 family has vision encoder
+        if info["model_info"].get(f"{family}.vision.embedding_length", None):
+            model["has_vision_encoder"] = True
         model["default_system_prompt"] = info.get("system", "")
     return models
 
