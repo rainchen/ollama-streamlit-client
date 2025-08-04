@@ -7,7 +7,7 @@ def plugin_info():
         "params": {
             "display_reasoning_process": {
                 "type": "boolean",
-                "default": False,
+                "default": True,
                 "help": "Determines if the reasoning process should be shown",
             },
         },
