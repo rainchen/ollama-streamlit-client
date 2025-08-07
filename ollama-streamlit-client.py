@@ -426,6 +426,8 @@ def ui_chat_input_area():
             st.button(
                 ":material/stop_circle:", key="stop_responding", on_click=cb_stop_stream
             )
+        if st.session_state.get("ollama_down", False):
+            ui_init_chat_input_value(st.session_state.get("last_user_input", ""))
     with image_uploader_col:
         with st.popover(
             ":material/add_photo_alternate:",
@@ -444,13 +446,22 @@ def ui_chat_input_area():
 def process_user_input(prompt, uploaded_image, conversation_container, plugins):
     if prompt:
         print("[DEBUG] process user input:", repr(prompt))
-        st.session_state.stop_stream = False
-        message = create_user_message(prompt, uploaded_image)
-        st.session_state.messages.append(message)
 
-        with conversation_container:
-            ui_display_user_message(message)
-            ui_display_assistant_response(message, plugins)
+        # Check if Ollama is down before processing
+        if st.session_state.get("ollama_down", False):
+            st.error(
+                "❌ **Ollama server is not responding.**\n\nPlease check that:\n• Ollama is running (`ollama serve`)\n•"
+            )
+            # Don't append message to conversation history, keep it in input field
+            st.session_state.last_user_input = prompt
+        else:
+            st.session_state.stop_stream = False
+            message = create_user_message(prompt, uploaded_image)
+            st.session_state.messages.append(message)
+
+            with conversation_container:
+                ui_display_user_message(message)
+                ui_display_assistant_response(message, plugins)
 
         if st.session_state.user_input_disabled:
             cb_enable_user_input()
@@ -675,10 +686,52 @@ def ui_plugin_params(params: Dict):
                     )
 
 
+def ollama_health_check():
+    """Check if Ollama is running by making a GET request to the root endpoint."""
+    try:
+        # Access the internal client and use its _request method
+        response = ollama._client._request("GET", "/")
+        if response.status_code == 200:
+            print("[DEBUG] Ollama health check passed")
+            return True
+        else:
+            print(
+                f"[DEBUG] Ollama health check failed with status code: {response.status_code}"
+            )
+            return False
+    except Exception as e:
+        print(f"[DEBUG] Ollama health check failed with error: {e}")
+        return False
+
+
 def main():
     print("[DEBUG] main()")
-    ui_custom_css()
+
+    # Initialize session state first
     init_session_state()
+
+    # Check if this is the first time running (no messages in session)
+    is_first_run = len(st.session_state.messages) == 0
+
+    # Perform health check
+    if not ollama_health_check():
+        if is_first_run:
+            # First time: show error and stop the app
+            st.error("❌ Ollama is not running. Please start Ollama first.")
+            st.stop()
+        else:
+            # During active usage: show popup warning
+            st.error(
+                "❌ Ollama server is down. Please restart Ollama to continue chatting."
+            )
+            # Continue with the app but disable chat functionality
+            st.session_state.ollama_down = True
+    else:
+        # Ollama is running, clear any previous down state
+        if "ollama_down" in st.session_state:
+            del st.session_state.ollama_down
+
+    ui_custom_css()
 
     models = ollama_get_models()
     plugins = os_load_plugins()
