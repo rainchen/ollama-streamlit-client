@@ -377,6 +377,24 @@ def ui_display_selected_plugin(plugins):
             st.markdown(plugin_name, help=plugin_description)
 
 
+def ui_display_selected_model_info():
+    selected_model = st.session_state.get("selected_model", "")
+    if selected_model:
+        st.subheader(f"**Model:** {selected_model}")
+        selected_model_info = st.session_state.get("selected_model_info", {})
+        if selected_model_info:
+            context_length_k = selected_model_info.get("context_length_k", None)
+            size_gb = selected_model_info.get("size_gb", None)
+            # Show caption below the model name
+            caption_parts = []
+            if context_length_k is not None:
+                caption_parts.append(f"Context: {context_length_k}k")
+            if size_gb is not None:
+                caption_parts.append(f"Size: {size_gb} GB")
+            if caption_parts:
+                st.caption(" | ".join(caption_parts))
+
+
 def ui_display_chat_history():
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -737,6 +755,7 @@ def main():
     plugins = os_load_plugins()
     ui_sidebar(models, APP_NAME, plugins)
 
+    ui_display_selected_model_info()
     conversation_container = ui_conversation_container(plugins)
 
     with _bottom:
