@@ -702,6 +702,23 @@ def ui_plugin_params(params: Dict):
                         help=param_help,
                         key=f"plugin_param_{param_name}",
                     )
+                elif param_type == "file":
+                    st.file_uploader(
+                        param_name_titlize,
+                        type=param_info.get(
+                            "types",
+                            [
+                                "txt",
+                                "md",
+                                "csv",
+                                "log",
+                                "json",
+                            ],
+                        ),
+                        accept_multiple_files=False,
+                        help=param_help,
+                        key=f"plugin_param_{param_name}",
+                    )
 
 
 def ollama_health_check():
